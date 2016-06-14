@@ -45,6 +45,8 @@ module Delayed
         set_delayed_job_table_name
 
         def self.ready_to_run(worker_name, max_run_time)
+          ::ActiveRecord::Base.clear_all_connections!
+          ::ActiveRecord::Base.establish_connection
           where("(run_at <= ? AND (locked_at IS NULL OR locked_at < ?) OR locked_by = ?) AND failed_at IS NULL", db_time_now, db_time_now - max_run_time, worker_name)
         end
 
@@ -58,10 +60,20 @@ module Delayed
 
         # When a worker is exiting, make sure we don't have any locked jobs.
         def self.clear_locks!(worker_name)
+	  puts "Clearing1"
+          ::ActiveRecord::Base.clear_all_connections!
+	  puts "Connect1"
+          ::ActiveRecord::Base.establish_connection
+
           where(locked_by: worker_name).update_all(locked_by: nil, locked_at: nil)
         end
 
         def self.reserve(worker, max_run_time = Worker.max_run_time) # rubocop:disable CyclomaticComplexity
+	  puts "Clearing2"
+          ::ActiveRecord::Base.clear_all_connections!
+	  puts "Connect2"
+          ::ActiveRecord::Base.establish_connection
+
           # scope to filter to records that are "ready to run"
           ready_scope = ready_to_run(worker.name, max_run_time)
 
@@ -75,6 +87,11 @@ module Delayed
         end
 
         def self.reserve_with_scope(ready_scope, worker, now)
+	  puts "Clearing3"
+          ::ActiveRecord::Base.clear_all_connections!
+	  puts "Connect3"
+          ::ActiveRecord::Base.establish_connection
+
           case Delayed::Backend::ActiveRecord.configuration.reserve_sql_strategy
           # Optimizations for faster lookups on some common databases
           when :optimized_sql
@@ -87,6 +104,11 @@ module Delayed
         end
 
         def self.reserve_with_scope_using_optimized_sql(ready_scope, worker, now)
+	  puts "Clearing4"
+          ::ActiveRecord::Base.clear_all_connections!
+	  puts "Connect4"
+          ::ActiveRecord::Base.establish_connection
+
           case connection.adapter_name
           when "PostgreSQL"
             # Custom SQL required for PostgreSQL because postgres does not support UPDATE...LIMIT
@@ -130,6 +152,11 @@ module Delayed
         end
 
         def self.reserve_with_scope_using_default_sql(ready_scope, worker, now)
+	  puts "Clearing5"
+          ::ActiveRecord::Base.clear_all_connections!
+	  puts "Connect5"
+          ::ActiveRecord::Base.establish_connection
+
           # This is our old fashion, tried and true, but slower lookup
           ready_scope.limit(worker.read_ahead).detect do |job|
             count = ready_scope.where(id: job.id).update_all(locked_at: now, locked_by: worker.name)
