@@ -45,11 +45,11 @@ module Delayed
         set_delayed_job_table_name
 
         def self.ready_to_run(worker_name, max_run_time)
-	  puts "Clearing0"
-          ::ActiveRecord::Base.clear_all_connections!
-	  puts "Connect0"
+	  puts "DJAR: Connect0"
           ::ActiveRecord::Base.establish_connection
           where("(run_at <= ? AND (locked_at IS NULL OR locked_at < ?) OR locked_by = ?) AND failed_at IS NULL", db_time_now, db_time_now - max_run_time, worker_name)
+	  puts "DJAR: Clearing0"
+          ::ActiveRecord::Base.clear_all_connections!
         end
 
         def self.before_fork
@@ -57,23 +57,23 @@ module Delayed
         end
 
         def self.after_fork
-          ::ActiveRecord::Base.establish_connection
+	  puts "DJAR: After fork"
+          #::ActiveRecord::Base.establish_connection
         end
 
         # When a worker is exiting, make sure we don't have any locked jobs.
         def self.clear_locks!(worker_name)
-	  puts "Clearing1"
-          ::ActiveRecord::Base.clear_all_connections!
-	  puts "Connect1"
+	  puts "DJAR: Connect1"
           ::ActiveRecord::Base.establish_connection
 
           where(locked_by: worker_name).update_all(locked_by: nil, locked_at: nil)
+
+	  puts "DJAR: Clearing1"
+          ::ActiveRecord::Base.clear_all_connections!
         end
 
         def self.reserve(worker, max_run_time = Worker.max_run_time) # rubocop:disable CyclomaticComplexity
-	  puts "Clearing2"
-          ::ActiveRecord::Base.clear_all_connections!
-	  puts "Connect2"
+	  puts "DJAR: Connect2"
           ::ActiveRecord::Base.establish_connection
 
           # scope to filter to records that are "ready to run"
@@ -86,12 +86,13 @@ module Delayed
           ready_scope = ready_scope.by_priority
 
           reserve_with_scope(ready_scope, worker, db_time_now)
+
+	  puts "DJAR: Clearing2"
+          ::ActiveRecord::Base.clear_all_connections!
         end
 
         def self.reserve_with_scope(ready_scope, worker, now)
-	  puts "Clearing3"
-          ::ActiveRecord::Base.clear_all_connections!
-	  puts "Connect3"
+	  puts "DJAR: Connect3"
           ::ActiveRecord::Base.establish_connection
 
           case Delayed::Backend::ActiveRecord.configuration.reserve_sql_strategy
@@ -103,12 +104,13 @@ module Delayed
           when :default_sql
             reserve_with_scope_using_default_sql(ready_scope, worker, now)
           end
+
+	  puts "DJAR: Clearing3"
+          ::ActiveRecord::Base.clear_all_connections!
         end
 
         def self.reserve_with_scope_using_optimized_sql(ready_scope, worker, now)
-	  puts "Clearing4"
-          ::ActiveRecord::Base.clear_all_connections!
-	  puts "Connect4"
+	  puts "DJAR: Connect4"
           ::ActiveRecord::Base.establish_connection
 
           case connection.adapter_name
@@ -151,12 +153,13 @@ module Delayed
           else
             reserve_with_scope_using_default_sql(ready_scope, worker, now)
           end
+
+	  puts "DJAR: Clearing4"
+          ::ActiveRecord::Base.clear_all_connections!
         end
 
         def self.reserve_with_scope_using_default_sql(ready_scope, worker, now)
-	  puts "Clearing5"
-          ::ActiveRecord::Base.clear_all_connections!
-	  puts "Connect5"
+	  puts "DJAR: Connect5"
           ::ActiveRecord::Base.establish_connection
 
           # This is our old fashion, tried and true, but slower lookup
@@ -164,6 +167,9 @@ module Delayed
             count = ready_scope.where(id: job.id).update_all(locked_at: now, locked_by: worker.name)
             count == 1 && job.reload
           end
+
+	  puts "DJAR: Clearing5"
+          ::ActiveRecord::Base.clear_all_connections!
         end
 
         # Get the current time (GMT or local depending on DB)
