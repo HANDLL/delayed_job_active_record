@@ -45,7 +45,9 @@ module Delayed
         set_delayed_job_table_name
 
         def self.ready_to_run(worker_name, max_run_time)
+	  puts "Clearing0"
           ::ActiveRecord::Base.clear_all_connections!
+	  puts "Connect0"
           ::ActiveRecord::Base.establish_connection
           where("(run_at <= ? AND (locked_at IS NULL OR locked_at < ?) OR locked_by = ?) AND failed_at IS NULL", db_time_now, db_time_now - max_run_time, worker_name)
         end
