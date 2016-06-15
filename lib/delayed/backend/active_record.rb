@@ -45,36 +45,39 @@ module Delayed
         set_delayed_job_table_name
 
         def self.ready_to_run(worker_name, max_run_time)
-	  puts "DJAR: Connect0"
-          ::ActiveRecord::Base.establish_connection
+	  #Rails.logger.debug("DJAR: Connect0")
+          #::ActiveRecord::Base.establish_connection
+
           where("(run_at <= ? AND (locked_at IS NULL OR locked_at < ?) OR locked_by = ?) AND failed_at IS NULL", db_time_now, db_time_now - max_run_time, worker_name)
-	  puts "DJAR: Clearing0"
-          ::ActiveRecord::Base.clear_all_connections!
+
+	  #Rails.logger.debug("DJAR: Clearing0")
+          #::ActiveRecord::Base.clear_all_connections!
         end
 
         def self.before_fork
+	  Rails.logger.debug("DJAR: Clearing before_fork")
           ::ActiveRecord::Base.clear_all_connections!
         end
 
         def self.after_fork
-	  puts "DJAR: After fork"
+	  Rails.logger.debug("DJAR: Establishing after_fork")
           #::ActiveRecord::Base.establish_connection
         end
 
         # When a worker is exiting, make sure we don't have any locked jobs.
         def self.clear_locks!(worker_name)
-	  puts "DJAR: Connect1"
+	  Rails.logger.debug("DJAR: Connect clear_locks")
           ::ActiveRecord::Base.establish_connection
 
           where(locked_by: worker_name).update_all(locked_by: nil, locked_at: nil)
 
-	  puts "DJAR: Clearing1"
+	  Rails.logger.debug("DJAR: Clearing clear_locks")
           ::ActiveRecord::Base.clear_all_connections!
         end
 
         def self.reserve(worker, max_run_time = Worker.max_run_time) # rubocop:disable CyclomaticComplexity
-	  puts "DJAR: Connect2"
-          ::ActiveRecord::Base.establish_connection
+	  #Rails.logger.debug("DJAR: Connect reserve")
+          #::ActiveRecord::Base.establish_connection
 
           # scope to filter to records that are "ready to run"
           ready_scope = ready_to_run(worker.name, max_run_time)
@@ -87,13 +90,13 @@ module Delayed
 
           reserve_with_scope(ready_scope, worker, db_time_now)
 
-	  puts "DJAR: Clearing2"
-          ::ActiveRecord::Base.clear_all_connections!
+	  #Rails.logger.debug("DJAR: Clearing reesrve")
+          #::ActiveRecord::Base.clear_all_connections!
         end
 
         def self.reserve_with_scope(ready_scope, worker, now)
-	  puts "DJAR: Connect3"
-          ::ActiveRecord::Base.establish_connection
+	  #Rails.logger.debug("DJAR: Connect reesrve_with_scope")
+          #::ActiveRecord::Base.establish_connection
 
           case Delayed::Backend::ActiveRecord.configuration.reserve_sql_strategy
           # Optimizations for faster lookups on some common databases
@@ -105,12 +108,12 @@ module Delayed
             reserve_with_scope_using_default_sql(ready_scope, worker, now)
           end
 
-	  puts "DJAR: Clearing3"
-          ::ActiveRecord::Base.clear_all_connections!
+	  #Rails.logger.debug("DJAR: Clearing reesrve_with_scope")
+          #::ActiveRecord::Base.clear_all_connections!
         end
 
         def self.reserve_with_scope_using_optimized_sql(ready_scope, worker, now)
-	  puts "DJAR: Connect4"
+	  Rails.logger.debug("DJAR: Connect reserve_with_scope_using_optimized_sql")
           ::ActiveRecord::Base.establish_connection
 
           case connection.adapter_name
@@ -135,7 +138,12 @@ module Delayed
             # This works on MySQL and possibly some other DBs that support
             # UPDATE...LIMIT. It uses separate queries to lock and return the job
             count = ready_scope.limit(1).update_all(locked_at: now, locked_by: worker.name)
-            return nil if count == 0
+	    Rails.logger.debug("DJAR: count #{count}")
+            if count == 0
+		Rails.logger.debug("DJAR: Clearing reserve_with_scope_using_optimized_sql - 0 count")
+		::ActiveRecord::Base.clear_all_connections!
+		return nil
+	    end
             where(locked_at: now, locked_by: worker.name, failed_at: nil).first
           when "MSSQL", "Teradata"
             # The MSSQL driver doesn't generate a limit clause when update_all
@@ -146,7 +154,9 @@ module Delayed
             quoted_table_name = connection.quote_table_name(table_name)
             sql = ["UPDATE #{quoted_table_name} SET locked_at = ?, locked_by = ? WHERE id IN (#{subquery_sql})", now, worker.name]
             count = connection.execute(sanitize_sql(sql))
-            return nil if count == 0
+            if count == 0
+		return nil
+            end
             # MSSQL JDBC doesn't support OUTPUT INSERTED.* for returning a result set, so query locked row
             where(locked_at: now, locked_by: worker.name, failed_at: nil).first
           # Fallback for unknown / other DBMS
@@ -154,12 +164,12 @@ module Delayed
             reserve_with_scope_using_default_sql(ready_scope, worker, now)
           end
 
-	  puts "DJAR: Clearing4"
-          ::ActiveRecord::Base.clear_all_connections!
+	  #Rails.logger.debug("DJAR: Clearing reserve_with_scope_using_optimized_sql")
+          #::ActiveRecord::Base.clear_all_connections!
         end
 
         def self.reserve_with_scope_using_default_sql(ready_scope, worker, now)
-	  puts "DJAR: Connect5"
+	  Rails.logger.debug("DJAR: Connect reserve_with_scope_using_default_sql")
           ::ActiveRecord::Base.establish_connection
 
           # This is our old fashion, tried and true, but slower lookup
@@ -168,7 +178,7 @@ module Delayed
             count == 1 && job.reload
           end
 
-	  puts "DJAR: Clearing5"
+	  Rails.logger.debug("DJAR: Clearing reserve_with_scope_using_default_sql")
           ::ActiveRecord::Base.clear_all_connections!
         end
 
