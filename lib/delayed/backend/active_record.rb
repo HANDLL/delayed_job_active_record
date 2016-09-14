@@ -113,7 +113,7 @@ module Delayed
         end
 
         def self.reserve_with_scope_using_optimized_sql(ready_scope, worker, now)
-	  Rails.logger.debug("DJAR: START: reserve_with_scope_using_optimized_sql")
+	  #Rails.logger.debug("DJAR: START: reserve_with_scope_using_optimized_sql")
           #::ActiveRecord::Base.establish_connection
 
           case connection.adapter_name
@@ -138,10 +138,10 @@ module Delayed
             # This works on MySQL and possibly some other DBs that support
             # UPDATE...LIMIT. It uses separate queries to lock and return the job
             count = ready_scope.limit(1).update_all(locked_at: now, locked_by: worker.name)
-	    Rails.logger.debug("DJAR: count #{count}: reserve_with_scope_using_optimized_sql")
+	    #Rails.logger.debug("DJAR: count #{count}: reserve_with_scope_using_optimized_sql")
 	    ::ActiveRecord::Base.clear_active_connections!
             if count == 0
-		Rails.logger.debug("DJAR: FINISH: reserve_with_scope_using_optimized_sql - 0 count")
+		#Rails.logger.debug("DJAR: FINISH: reserve_with_scope_using_optimized_sql - 0 count")
 		#::ActiveRecord::Base.clear_all_connections!
 		return nil
 	    end
