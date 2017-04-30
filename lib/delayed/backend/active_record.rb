@@ -171,7 +171,7 @@ module Delayed
 
         def self.reserve_with_scope_using_default_sql(ready_scope, worker, now)
 	  Rails.logger.debug("DJAR: START: reserve_with_scope_using_default_sql")
-          ::ActiveRecord::Base.establish_connection
+          #::ActiveRecord::Base.establish_connection
 
           # This is our old fashion, tried and true, but slower lookup
           ready_scope.limit(worker.read_ahead).detect do |job|
@@ -179,7 +179,7 @@ module Delayed
             count == 1 && job.reload
           end
 
-	  Rails.logger.debug("DJAR: FINISH: reserve_with_scope_using_default_sql")
+	  #Rails.logger.debug("DJAR: FINISH: reserve_with_scope_using_default_sql")
           ::ActiveRecord::Base.clear_all_connections!
         end
 
